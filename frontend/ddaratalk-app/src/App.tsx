@@ -134,7 +134,7 @@ const App = () => {
 
 
     try {
-      const response = await fetch('http://localhost:8080/api/analyze-pronunciation', { 
+      const response = await fetch('/api/pronunciation/analyze', { // 전체 URL로 수정
         method: 'POST',
         body: formData,
       });
