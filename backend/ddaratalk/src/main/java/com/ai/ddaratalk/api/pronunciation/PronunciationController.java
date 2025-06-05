@@ -1,5 +1,7 @@
 package com.ai.ddaratalk.api.pronunciation;
 
+import java.io.IOException;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -7,21 +9,29 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import lombok.RequiredArgsConstructor;
+
 @RestController
-@RequestMapping("/api/pronunciation") // 컨트롤러의 기본 경로 설정
+@RequestMapping("/api/pronunciation")
+@RequiredArgsConstructor// 컨트롤러의 기본 경로 설정
 public class PronunciationController {
+
+	private final AudioConversionService audioConversionService;
 
 	@PostMapping("/analyze")
 	public ResponseEntity<String> analyzePronunciation(@RequestParam("audioFile") MultipartFile audioFile) {
-		// 1. 파일 수신 확인 로그
-		System.out.println("컨트롤러에 오디오 파일 수신됨!");
-		System.out.println("원본 파일 이름: " + audioFile.getOriginalFilename());
-		System.out.println("파일 크기: " + audioFile.getSize() + " bytes");
-		System.out.println("파일 컨텐츠 타입: " + audioFile.getContentType());
 
-		// 2. 실제 분석 로직 (추후 구현)
-		// TODO: 오디오 파일 저장 (임시 또는 영구)
+
 		// TODO: FFmpeg를 사용하여 WAV로 변환 (필요시)
+		String filePath = null;
+		try {
+			filePath = audioConversionService.convertWebmToWav(audioFile);
+		} catch (IOException | InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+
+
+
 		// TODO: Python AI 스크립트 호출
 		// TODO: AI 스크립트 결과 파싱
 

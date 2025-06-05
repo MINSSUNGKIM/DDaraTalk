@@ -7,7 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-	@Overrides
+	@Override
 	public void addCorsMappings(CorsRegistry registry) {
 		registry.addMapping("/**") // 애플리케이션의 모든 경로(/**)에 대해 CORS 설정 적용
 			.allowedOrigins("http://localhost:5173") // 요청을 허용할 출처 (프론트엔드 Vite 개발 서버 주소)
