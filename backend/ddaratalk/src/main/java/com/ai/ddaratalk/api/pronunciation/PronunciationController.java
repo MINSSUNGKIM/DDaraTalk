@@ -2,6 +2,7 @@ package com.ai.ddaratalk.api.pronunciation;
 
 import java.io.IOException;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,44 +10,74 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.ai.ddaratalk.api.pronunciation.dto.PronunciationResult;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/pronunciation")
-@RequiredArgsConstructor// 컨트롤러의 기본 경로 설정
+@RequiredArgsConstructor
+@Slf4j
 public class PronunciationController {
 
 	private final AudioConversionService audioConversionService;
+	private final PronunciationAnalysisService pronunciationAnalysisService;
 
 	@PostMapping("/analyze")
-	public ResponseEntity<String> analyzePronunciation(@RequestParam("audioFile") MultipartFile audioFile) {
+	public ResponseEntity<?> analyzePronunciation(
+		@RequestParam("audioFile") MultipartFile audioFile,
+		@RequestParam(value = "lang", defaultValue = "en") String lang,
+		@RequestParam(value = "text", required = false) String targetText) {
 
-
-		// TODO: FFmpeg를 사용하여 WAV로 변환 (필요시)
-		String filePath = null;
 		try {
-			filePath = audioConversionService.convertWebmToWav(audioFile);
+			log.info("발음 분석 요청 수신: 파일명={}, 언어={}", audioFile.getOriginalFilename(), lang);
+
+			// 1. 입력 검증
+			if (audioFile.isEmpty()) {
+				return ResponseEntity.badRequest()
+					.body(new ErrorResponse("업로드된 파일이 비어있습니다."));
+			}
+
+			// 2. WebM을 WAV로 변환
+			String wavFilePath = audioConversionService.convertWebmToWav(audioFile);
+			log.info("오디오 변환 완료: {}", wavFilePath);
+
+			// 3. AI 모델을 통한 발음 분석
+			PronunciationResult result = pronunciationAnalysisService.analyzePronunciation(
+				wavFilePath, lang, targetText);
+
+			log.info("발음 분석 완료: 점수={}", result.getScore());
+
+			// 4. 임시 파일 정리
+			audioConversionService.cleanupTempFile(wavFilePath);
+
+			return ResponseEntity.ok(result);
+
 		} catch (IOException | InterruptedException e) {
-			throw new RuntimeException(e);
+			log.error("오디오 변환 중 오류 발생", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(new ErrorResponse("오디오 파일 처리 중 오류가 발생했습니다."));
+		} catch (Exception e) {
+			log.error("발음 분석 중 예상치 못한 오류 발생", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(new ErrorResponse("발음 분석 중 오류가 발생했습니다: " + e.getMessage()));
 		}
-
-
-
-		// TODO: Python AI 스크립트 호출
-		// TODO: AI 스크립트 결과 파싱
-
-		// 3. 임시 응답
-		String responseMessage = "오디오 파일 '" + audioFile.getOriginalFilename() + "' 수신 완료. 분석 기능은 준비 중입니다.";
-		System.out.println("클라이언트에 응답: " + responseMessage);
-
-		return ResponseEntity.ok(responseMessage);
 	}
 
-	// (선택적) 간단한 GET 요청 테스트용 엔드포인트
-	// @GetMapping("/ping")
-	// public ResponseEntity<String> ping() {
-	//     String message = "PronunciationController is active!";
-	//     System.out.println(message);
-	//     return ResponseEntity.ok(message);
-	// }
+	/**
+	 * 에러 응답 DTO
+	 */
+	public static class ErrorResponse {
+		private String error;
+		private long timestamp;
+
+		public ErrorResponse(String error) {
+			this.error = error;
+			this.timestamp = System.currentTimeMillis();
+		}
+
+		public String getError() { return error; }
+		public long getTimestamp() { return timestamp; }
+	}
 }

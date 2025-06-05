@@ -1,0 +1,27 @@
+# AI 모델 파일들 (용량 큰 파일들)
+*.tar
+*.pt
+*.pth
+data/
+*.wav
+*.mp3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 로그 파일
+*.log
+
+# 환경 설정
+.env

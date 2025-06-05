@@ -13,30 +13,39 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AudioConversionService {
 
-
 	private static final Logger logger = LoggerFactory.getLogger(AudioConversionService.class);
+
+	@Value("${app.shared.directory:/tmp/shared_data}")
+	private String sharedDirectory;
+
 	private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 
-
 	/**
-	 * WebM 파일을 WAV로 변환
+	 * WebM 파일을 WAV로 변환하고 공유 폴더로 이동
 	 * @param webmFile 업로드된 WebM 파일
-	 * @return 변환된 WAV 파일 경로
+	 * @return 공유 폴더 내 WAV 파일 경로
 	 */
 	public String convertWebmToWav(MultipartFile webmFile) throws IOException, InterruptedException {
 		// FFmpeg 설치 확인
 		checkFFmpegInstallation();
 
+		// 공유 폴더 생성
+		createSharedDirectories();
+
 		// 임시 파일 생성
 		String uuid = UUID.randomUUID().toString();
 		Path tempWebmPath = Paths.get(TEMP_DIR, uuid + ".webm");
 		Path tempWavPath = Paths.get(TEMP_DIR, uuid + ".wav");
+
+		// 절대 경로로 공유 폴더 경로 구성
+		Path sharedWavPath = Paths.get(sharedDirectory, "input", uuid + ".wav").toAbsolutePath();
 
 		try {
 			// WebM 파일을 임시 디렉토리에 저장
@@ -46,17 +55,35 @@ public class AudioConversionService {
 			// FFmpeg로 변환 실행
 			executeFFmpegConversion(tempWebmPath.toString(), tempWavPath.toString());
 
-			logger.info("WAV 변환 완료: {}", tempWavPath);
-			return tempWavPath.toString();
+			// WAV 파일을 공유 폴더로 이동
+			Files.move(tempWavPath, sharedWavPath, StandardCopyOption.REPLACE_EXISTING);
+
+			logger.info("WAV 변환 및 공유 폴더 이동 완료: {}", sharedWavPath);
+			return sharedWavPath.toString();
 
 		} finally {
-			// 임시 WebM 파일 삭제
-			try {
-				Files.deleteIfExists(tempWebmPath);
-			} catch (IOException e) {
-				logger.warn("임시 WebM 파일 삭제 실패: {}", tempWebmPath, e);
-			}
+			// 임시 파일들 정리
+			cleanupTempFiles(tempWebmPath, tempWavPath);
 		}
+	}
+
+	/**
+	 * 공유 디렉토리 생성
+	 */
+	private void createSharedDirectories() throws IOException {
+		Path inputDir = Paths.get(sharedDirectory, "input").toAbsolutePath();
+		Path outputDir = Paths.get(sharedDirectory, "output").toAbsolutePath();
+
+		logger.info("공유 디렉토리 절대 경로 - Input: {}, Output: {}", inputDir, outputDir);
+
+		Files.createDirectories(inputDir);
+		Files.createDirectories(outputDir);
+
+		logger.info("공유 디렉토리 생성 완료: input={}, output={}", inputDir, outputDir);
+
+		// 디렉토리 존재 여부 재확인
+		logger.info("디렉토리 존재 확인 - Input: {}, Output: {}",
+			Files.exists(inputDir), Files.exists(outputDir));
 	}
 
 	/**
@@ -120,16 +147,43 @@ public class AudioConversionService {
 	}
 
 	/**
-	 * 임시 파일 정리
+	 * 임시 파일들 정리
+	 */
+	private void cleanupTempFiles(Path... paths) {
+		for (Path path : paths) {
+			try {
+				if (Files.exists(path)) {
+					Files.deleteIfExists(path);
+					logger.debug("임시 파일 삭제 완료: {}", path);
+				}
+			} catch (IOException e) {
+				logger.warn("임시 파일 삭제 실패: {}", path, e);
+			}
+		}
+	}
+
+	/**
+	 * 임시 파일 정리 (외부 호출용)
 	 * @param filePath 삭제할 파일 경로
 	 */
 	public void cleanupTempFile(String filePath) {
 		try {
 			Files.deleteIfExists(Paths.get(filePath));
-			logger.info("임시 파일 삭제 완료: {}", filePath);
+			logger.info("파일 삭제 완료: {}", filePath);
 		} catch (IOException e) {
-			logger.warn("임시 파일 삭제 실패: {}", filePath, e);
+			logger.warn("파일 삭제 실패: {}", filePath, e);
 		}
 	}
 
+	/**
+	 * 파일 확장자를 제거한 파일명 반환
+	 * @param filePath 파일 경로
+	 * @return 확장자를 제거한 파일명
+	 */
+	public String getFileNameWithoutExtension(String filePath) {
+		Path path = Paths.get(filePath);
+		String fileName = path.getFileName().toString();
+		int lastDotIndex = fileName.lastIndexOf('.');
+		return lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName;
+	}
 }
