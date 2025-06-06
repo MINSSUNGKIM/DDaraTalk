@@ -1,23 +1,19 @@
-# application.yml ?? ??
 
 spring:
   application:
     name: ddaratalk
 
-  # H2 ?????? ??
   datasource:
     url: jdbc:h2:mem:testdb
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
 
-  # H2 Console ??
   h2:
     console:
       enabled: true
       path: /h2-console
 
-  # JPA ? Hibernate ??
   jpa:
     hibernate:
       ddl-auto: update
@@ -27,22 +23,17 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
 
-  # ?? ??? ??
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
 
-# AI ?? ?? ?? ??
 app:
   shared:
-    # ?? ??? ?? (??? ?? ??? ?? ??)
     directory: /Users/mike/Workspace/Ddaratalk/shared_data
   analysis:
-    # AI ?? ???? (?)
     timeout: 30
 
-# ?? ??
 logging:
   level:
     com.ai.ddaratalk.api.pronunciation: DEBUG
